@@ -1,0 +1,20 @@
+{
+  "name": "@dialect/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@dialect/domain": "workspace:*",
+    "openai": "^7.27.0",
+    "zod": "^4.6.5"
+  }
+}

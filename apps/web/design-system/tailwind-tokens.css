@@ -1,0 +1,48 @@
+/*
+ * tailwind-tokens.css: the Tailwind CSS 4 form of the reference
+ * design-system/tailwind-tokens.js.
+ *
+ * Tailwind 4 is configured in CSS. This @theme block maps the design tokens
+ * from tokens.css to theme variables so that utilities exist for them.
+ * Imported by app/globals.css after "tailwindcss" and tokens.css.
+ *
+ * The standard Tailwind slate, blue, emerald, amber and rose scales are used
+ * as they ship with Tailwind 4. No other color family is added.
+ *
+ * Their rendered values are NOT the hex values written in tokens.css.
+ * tokens.css lists the Tailwind 3 values of the reference; Tailwind 4 defines
+ * the palette in OKLCH, and the browser renders, for example, slate-500 as
+ * #62748e (tokens.css: #64748B) and slate-600 as #45556c (#475569). The
+ * difference is not visible side by side, but it moves contrast ratios:
+ * compute contrast from the rendered values. The measured table is in
+ * ACCESSIBILITY.md ("Color contrast").
+ */
+
+@theme inline {
+  /* System font stacks: font-sans, font-mono */
+  --font-sans: var(--font-stack-sans);
+  --font-mono: var(--font-stack-mono);
+
+  /* Shadows: shadow-xs, shadow-sm, shadow-md (same values as the reference) */
+  --shadow-xs: var(--shadow-elevation-xs);
+  --shadow-sm: var(--shadow-elevation-sm);
+  --shadow-md: var(--shadow-elevation-md);
+
+  /* Layout: w-sidebar, ml-sidebar */
+  --spacing-sidebar: var(--sidebar-width);
+}
+
+/*
+ * TEST treatment: diagonal amber stripes, taken from the reference Badge
+ * "test" variant. Used by the TEST badge and the TEST mode banner so that
+ * test data is hard to mistake for research data.
+ */
+@utility bg-test-stripes {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--test-stripe-a) 0,
+    var(--test-stripe-a) 6px,
+    var(--test-stripe-b) 6px,
+    var(--test-stripe-b) 12px
+  );
+}

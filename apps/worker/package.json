@@ -1,0 +1,27 @@
+{
+  "name": "@dialect/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "tsx src/main.ts",
+    "db:migrate": "tsx ../../packages/db/src/migrate.ts",
+    "db:seed": "tsx ../../packages/db/src/seed/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@dialect/ai": "workspace:*",
+    "@dialect/db": "workspace:*",
+    "@dialect/domain": "workspace:*",
+    "@dialect/research": "workspace:*",
+    "@dialect/storage": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.1",
+    "pino": "^10.3.1",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.5"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "dialect-translation-study",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.5.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @dialect/web --filter @dialect/worker dev",
+    "dev:web": "pnpm --filter @dialect/web dev",
+    "dev:worker": "pnpm --filter @dialect/worker dev",
+    "build": "pnpm --filter @dialect/web build",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:generate": "pnpm --filter @dialect/db db:generate",
+    "db:migrate": "pnpm --filter @dialect/db db:migrate",
+    "db:seed": "pnpm --filter @dialect/db db:seed && tsx --env-file-if-exists=.env scripts/seed-test-sessions.ts",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "test:e2e": "pnpm --filter @dialect/web test:e2e",
+    "test:e2e:isolated": "node scripts/e2e/run-isolated.mjs",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "check:style": "node scripts/check-no-em-dash.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

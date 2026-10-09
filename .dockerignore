@@ -1,0 +1,51 @@
+# Build context for docker/web.Dockerfile and docker/worker.Dockerfile.
+# Nothing listed here can reach an image layer.
+
+# Dependencies and build output: installed and built inside the image.
+**/node_modules
+**/.next
+**/out
+**/dist
+**/build
+**/coverage
+**/*.tsbuildinfo
+**/.vite
+**/.vite-temp
+**/.vitest
+
+# Secrets: configuration comes from the environment at run time (spec 95).
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+*.pem
+
+# Participant media, exports and local database files (spec 67).
+data/
+exports/
+
+# Version control and editor files.
+.git
+.gitignore
+.github
+.vscode
+.idea
+.impeccable
+.DS_Store
+
+# Test output and screenshots.
+**/test-results
+**/playwright-report
+**/blob-report
+docs/ui-*
+
+# Not needed to build or run.
+docs/
+scripts/
+docker-compose*.yml
+docker/
+*.md
+_queries.cypher
+npm-debug.log*
+.pnpm-debug.log*

@@ -1,0 +1,21 @@
+# Local development services. The web and worker services are defined in
+# docker-compose.app.yml so that `docker compose up -d postgres` stays fast.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dialect_study
+    ports:
+      - "127.0.0.1:5546:5432"
+    volumes:
+      - dialect_study_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dialect_study"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  dialect_study_pg:

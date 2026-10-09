@@ -1,0 +1,33 @@
+{
+  "name": "@dialect/research",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@dialect/ai": "workspace:*",
+    "@dialect/db": "workspace:*",
+    "@dialect/domain": "workspace:*",
+    "@dialect/storage": "workspace:*",
+    "archiver": "^8.0.0",
+    "csv-stringify": "^6.9.0",
+    "diff": "^9.0.0",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.1",
+    "pino": "^10.3.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/pg": "^8.23.1"
+  }
+}

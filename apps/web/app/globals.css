@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "../design-system/tokens.css";
+@import "../design-system/tailwind-tokens.css";
+
+/*
+ * Base layer. Light theme only: there is no dark mode (design-system/AESTHETIC.md).
+ */
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--color-bg-surface);
+    color: var(--color-text-body);
+    font-family: var(--font-stack-sans);
+  }
+
+  /* Tailwind 4 resets the button cursor to default. The reference
+     (Tailwind 3) shows a pointer on enabled buttons; keep that behavior. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
+
+  /* The native modal dialog backdrop used by ConfirmDialog. */
+  dialog::backdrop {
+    background: rgba(15, 23, 42, 0.4);
+  }
+}
+
+/* Motion is quiet by default and removed on request (ACCESSIBILITY.md). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

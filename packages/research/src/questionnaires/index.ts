@@ -1,0 +1,33 @@
+// Questionnaires as versioned research instruments (spec 11, 12, 55).
+// Usage: import { questionnaires } from "@dialect/research";
+export {
+  listQuestionnaires,
+  getQuestionnaireVersion,
+  createQuestionnaireDraft,
+  cloneQuestionnaireVersion,
+  updateQuestionnaireDraft,
+  saveQuestionnaireDraft,
+  addItem,
+  updateItem,
+  deleteItem,
+  moveItem,
+  publishQuestionnaireVersion,
+  retireQuestionnaireVersion,
+  deleteQuestionnaireDraft,
+  findPreviousPublishedVersionId,
+  diffQuestionnaireVersions,
+  toItemView,
+  resolveQuestionnaireStudy,
+  assertItemInVersion,
+  type AddItemInput,
+  type CreateQuestionnaireDraftInput,
+  type QuestionnaireDiff,
+  type QuestionnaireGroup,
+  type QuestionnaireItemView,
+  type QuestionnaireVersionDetail,
+  type QuestionnaireVersionSummary,
+  type SaveDraftInput,
+  type UpdateItemInput,
+  type UpdateQuestionnaireDraftInput,
+} from "./service";
+export { getQuestionnaireResponsesForSession, type SessionQuestionnaireResponse } from "./responses";

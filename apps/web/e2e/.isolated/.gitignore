@@ -1,0 +1,3 @@
+# Files of an isolated end-to-end run: saved sign-in state and Playwright output. Never commit them.
+*
+!.gitignore

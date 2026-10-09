@@ -1,0 +1,129 @@
+# Web app, worker and database migration as containers. Use together with
+# docker-compose.yml, which defines PostgreSQL:
+#
+#   cp docker/app.env.example .env.docker      (then fill in the secrets)
+#   docker compose -f docker-compose.yml -f docker-compose.app.yml up --build
+#
+# Variables read by this file (from the shell or from the root .env file, used
+# only for substitution in this file, never copied into a container):
+#   APP_ENV_FILE       env file given to the containers      default .env.docker
+#   WEB_PORT           host port of the web app              default 3000
+#   WEB_BIND           host address the port is bound to     default 127.0.0.1
+#   MEDIA_VOLUME_NAME  name of the media volume              default dialect_study_media
+#   DB_ADMIN_URL, DB_OWNER_PASSWORD, DB_APP_PASSWORD, DB_OWNER_ROLE, DB_APP_ROLE
+#                      only for the one-time `db-roles` service, see
+#                      docs/DEPLOYMENT.md, "Database roles"
+#
+# See docs/DEPLOYMENT.md for the full description.
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  # The local storage driver needs an absolute path inside the container.
+  # It is the mount point of the media volume shared by web and worker.
+  LOCAL_STORAGE_ROOT: /data/media
+
+x-app-env-file: &app-env-file
+  - path: ${APP_ENV_FILE:-.env.docker}
+    required: true
+
+services:
+  # Creates or repairs the two database roles: the migration owner role and the
+  # application role (docs/DEPLOYMENT.md, "Database roles"). Not started by
+  # `up`. Run it once before the first start, and again after a restore:
+  #   DB_OWNER_PASSWORD=... DB_APP_PASSWORD=... \
+  #   docker compose -f docker-compose.yml -f docker-compose.app.yml run --rm db-roles
+  # The superuser connection and the passwords come from the shell only. They
+  # are never written to the env file of the web and worker containers.
+  db-roles:
+    profiles: ["roles"]
+    image: postgres:17
+    entrypoint: ["sh", "/roles/create-roles.sh"]
+    environment:
+      DB_ADMIN_URL: ${DB_ADMIN_URL:-postgresql://postgres:postgres@postgres:5432/dialect_study}
+      DB_OWNER_ROLE: ${DB_OWNER_ROLE:-dialect_owner}
+      DB_APP_ROLE: ${DB_APP_ROLE:-dialect_app}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:-}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:-}
+    volumes:
+      - ./docker/postgres:/roles:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Applies the committed SQL migrations once and exits. The web and worker
+  # services start only after it finished successfully, so several web
+  # replicas never run migrations at the same time (spec 90.4).
+  # Connects with MIGRATION_DATABASE_URL (the owner role) when it is set,
+  # otherwise with DATABASE_URL.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: dialect-worker:local
+    command: ["node", "--import", "tsx", "../../packages/db/src/migrate.ts"]
+    env_file: *app-env-file
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: dialect-web:local
+    init: true
+    env_file: *app-env-file
+    environment:
+      <<: *app-environment
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      # Only the migrate service gets the owner role. Web runs as the application role.
+      MIGRATION_DATABASE_URL: ""
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    volumes:
+      - media:/data/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # Readiness: configuration valid, database reachable, storage writable.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: dialect-worker:local
+    init: true
+    env_file: *app-env-file
+    environment:
+      <<: *app-environment
+      # Only the migrate service gets the owner role. The worker runs as the application role.
+      MIGRATION_DATABASE_URL: ""
+    volumes:
+      - media:/data/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Time for running jobs to finish after SIGTERM (WORKER_SHUTDOWN_TIMEOUT_MS is 30 s).
+    stop_grace_period: 40s
+    restart: unless-stopped
+
+volumes:
+  # Audio written by the web app and read and written by the worker. A backup
+  # needs this volume and the database together (docs/DEPLOYMENT.md, "Backups").
+  media:
+    name: ${MEDIA_VOLUME_NAME:-dialect_study_media}

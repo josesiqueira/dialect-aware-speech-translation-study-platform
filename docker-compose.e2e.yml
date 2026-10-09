@@ -1,0 +1,135 @@
+# Isolated environment for the end-to-end tests (apps/web/e2e).
+#
+# Do not start this file by hand with a bare `docker compose`: the other Compose
+# files of this repository share the project name "translationproject" with the
+# development PostgreSQL container, and a `down` under that name would remove it.
+# This stack always runs under its own project name:
+#
+#   pnpm test:e2e:isolated                      (builds, starts, tests, removes)
+#   docker compose -p dialect-e2e -f docker-compose.e2e.yml ...
+#
+# What it contains, and why it cannot touch the development data:
+#   postgres  its own PostgreSQL 17 server with the data directory in memory
+#             (tmpfs), on host port 5547. It is a different server from the
+#             development one (host port 5546, volume dialect_study_pg), so no
+#             command of this stack can reach the database dialect_study.
+#   dbtools   the worker image, used once for migrations and once for the
+#             database seed (docs/DEPLOYMENT.md, section 1).
+#   web       the production web image on http://localhost:3210.
+#   worker    the production worker image for the same database.
+# Media is the host directory data/e2e-media (ignored by Git), mounted in web
+# and worker. The sample TEST sessions are written into it from the host by
+# scripts/seed-test-sessions.ts, because that script refuses NODE_ENV=production.
+#
+# The values below are for this throwaway environment only. They are not
+# secrets, and they must never be used for a deployment.
+#
+# Variables read by this file (set by scripts/e2e/run-isolated.mjs):
+#   E2E_WEB_PORT        host port of the web app            default 3210
+#   E2E_PG_PORT         host port of PostgreSQL             default 5547
+#   E2E_MEDIA_DIR       host media directory                default ./data/e2e-media
+#   E2E_UID             user id that owns the media files   default 1000
+#   E2E_ADMIN_PASSWORD  admin password of this environment
+
+name: dialect-e2e
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  APP_URL: http://localhost:${E2E_WEB_PORT:-3210}
+  APP_VERSION: 0.1.0-e2e
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dialect_study_e2e
+  ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-e2e-admin-password-not-a-secret}
+  ADMIN_SESSION_SECRET: e2e-session-secret-not-a-secret-0123456789abcdef
+  # The mock AI provider is off in production. It is turned on here, and only
+  # here, so that batches and the pipeline test run without a model.
+  AI_ALLOW_MOCK_PROVIDER: "true"
+  # No OPENAI_API_KEY on purpose: the tests assert the "not configured" failure.
+  OPENAI_API_KEY: ""
+  STORAGE_DRIVER: local
+  LOCAL_STORAGE_ROOT: /data/media
+  # Lets the Settings test run "Delete TEST and DEMO data" in a production build.
+  ALLOW_TEST_DATA_RESET: "true"
+  LOG_LEVEL: info
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dialect_study_e2e
+    ports:
+      - "127.0.0.1:${E2E_PG_PORT:-5547}:5432"
+    # In memory: nothing survives the container, so every run starts empty.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dialect_study_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Run with `docker compose run --rm dbtools <command>`; not started by `up`.
+  dbtools:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: dialect-worker:e2e
+    environment: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: dialect-web:e2e
+    init: true
+    user: "${E2E_UID:-1000}:0"
+    environment:
+      <<: *app-environment
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "127.0.0.1:${E2E_WEB_PORT:-3210}:3000"
+    volumes:
+      - ${E2E_MEDIA_DIR:-./data/e2e-media}:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health/ready').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 3s
+      timeout: 6s
+      retries: 40
+      start_period: 5s
+    restart: "no"
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: dialect-worker:e2e
+    init: true
+    user: "${E2E_UID:-1000}:0"
+    environment:
+      <<: *app-environment
+      WORKER_ID: worker-e2e
+      # Short pauses so that the tests do not wait for an idle worker.
+      WORKER_POLL_INTERVAL_MS: "500"
+      WORKER_HEARTBEAT_INTERVAL_MS: "5000"
+      WORKER_SHUTDOWN_TIMEOUT_MS: "5000"
+    volumes:
+      - ${E2E_MEDIA_DIR:-./data/e2e-media}:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 10s
+    restart: "no"

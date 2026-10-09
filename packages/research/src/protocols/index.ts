@@ -1,0 +1,88 @@
+// Protocol and consent versioning (spec 6.2, 7, 8, 47 to 49, 76, 141).
+// How it works and why: docs/PROTOCOL-VERSIONING.md.
+export {
+  resolveStudy,
+  type ConsentVersionRow,
+  type ProtocolDetail,
+  type ProtocolTaskFollowupRow,
+  type ProtocolTaskRow,
+  type ProtocolVersionRow,
+  type QuestionnaireItemRow,
+  type QuestionnaireVersionRow,
+  type QuestionnaireWithItems,
+  type TaskWithFollowups,
+} from "./shared";
+export {
+  cloneProtocolVersion,
+  createProtocolDraft,
+  deleteProtocolDraft,
+  getCurrentProtocol,
+  getProtocolVersion,
+  listProtocolOptions,
+  listProtocolVersions,
+  retireProtocol,
+  updateProtocolDraft,
+  type ProtocolDraftChanges,
+  type ProtocolOptions,
+  type ProtocolVersionSummary,
+} from "./versions";
+export {
+  addFollowup,
+  addTask,
+  cloneTask,
+  deleteFollowup,
+  deleteTask,
+  moveFollowup,
+  moveTask,
+  setTaskEnabled,
+  updateFollowup,
+  updateTask,
+  type EditOptions,
+  type FollowupChanges,
+  type FollowupInput,
+  type MoveDirection,
+  type TaskChanges,
+  type TaskInput,
+} from "./tasks";
+export {
+  EXAMPLE_TEXT_STATUS_MESSAGE,
+  PRIMING_CHECKS,
+  currentProtocolExampleText,
+  currentProtocolHasExampleText,
+  primingFindings,
+  validateProtocolForPublish,
+  type CurrentProtocolExampleText,
+  type ExampleTextField,
+  type PrimingFinding,
+  type ProtocolProblem,
+  type ProtocolValidation,
+} from "./validation";
+export { participantTitleOf, participantTitleSetting, participantTitleTranslationsSetting } from "./participant-title";
+export {
+  compareProtocols,
+  diffProtocolVersions,
+  diffText,
+  type FollowupRef,
+  type ProtocolDiff,
+  type SelectionRef,
+  type TaskDiff,
+  type TaskRef,
+  type TextChange,
+  type TextDiffPart,
+  type ValueChange,
+  type VersionRef,
+} from "./diff";
+export { publishProtocol, type PublishResult } from "./publish";
+export {
+  cloneConsentVersion,
+  consentPublishProblems,
+  createConsentDraft,
+  deleteConsentDraft,
+  getConsentVersion,
+  listConsentVersions,
+  publishConsentVersion,
+  updateConsentDraft,
+  type ConsentDraftChanges,
+  type ConsentDraftInput,
+  type ConsentVersionSummary,
+} from "./consent";

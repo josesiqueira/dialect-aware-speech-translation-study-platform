@@ -1,0 +1,205 @@
+# Temporary stakeholder demo on CSC Rahti (OpenShift). Not the production setup
+# of docs/DEPLOYMENT.md: one PostgreSQL pod with its own volume, and one app pod
+# where the web and worker containers share the media volume (ReadWriteOnce, so
+# both must run in the same pod). Migrations run in an init container on every
+# start; a second run changes nothing.
+#
+# Apply with deploy/rahti/README.md. PROJECT is replaced by the Rahti project
+# name and HOST by the route host name before `oc apply`.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgdata
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard-csi
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard-csi
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels: { app: postgres }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: image-registry.openshift-image-registry.svc:5000/PROJECT/postgres:17
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: dialect_study
+            - name: POSTGRES_USER
+              value: dialect
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: dialect-secrets, key: POSTGRES_PASSWORD }
+            # A subdirectory, so initdb can create it with the random user id Rahti assigns.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "dialect", "-d", "dialect_study"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector: { app: postgres }
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dialect-config
+data:
+  NODE_ENV: production
+  APP_URL: https://HOST
+  APP_VERSION: 0.1.0-demo
+  STORAGE_DRIVER: local
+  LOCAL_STORAGE_ROOT: /data/media
+  ADMIN_SESSION_TTL_HOURS: "8"
+  PARTICIPANT_SESSION_TTL_HOURS: "24"
+  TRUST_PROXY: "true"
+  AI_ALLOW_MOCK_PROVIDER: "false"
+  MAX_AUDIO_UPLOAD_MB: "100"
+  MAX_UTTERANCE_SECONDS: "300"
+  WORKER_ID: rahti-worker
+  WORKER_POLL_INTERVAL_MS: "2000"
+  WORKER_CONCURRENCY: "1"
+  ALLOW_TEST_DATA_RESET: "true"
+  # Lets the front page start sessions while the seeded example texts are still in place.
+  ALLOW_EXAMPLE_TEXT_SESSIONS: "true"
+  # The worker translates and synthesizes each recording right after its automatic ASR.
+  AUTO_TRANSLATE_AFTER_ASR: "true"
+  # The platform sets HOSTNAME to the pod name; the Next.js server must listen on all addresses.
+  HOSTNAME: 0.0.0.0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  labels: { app: dialect }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: dialect }
+  template:
+    metadata:
+      labels: { app: dialect }
+    spec:
+      terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: migrate
+          image: image-registry.openshift-image-registry.svc:5000/PROJECT/dialect-worker:demo
+          imagePullPolicy: Always
+          command: ["node", "--import", "tsx", "../../packages/db/src/migrate.ts"]
+          envFrom:
+            - configMapRef: { name: dialect-config }
+            - secretRef: { name: dialect-secrets }
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+      containers:
+        - name: web
+          image: image-registry.openshift-image-registry.svc:5000/PROJECT/dialect-web:demo
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef: { name: dialect-config }
+            - secretRef: { name: dialect-secrets }
+          volumeMounts:
+            - name: media
+              mountPath: /data/media
+          readinessProbe:
+            httpGet: { path: /api/health/ready, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 400m, memory: 512Mi }
+            limits: { cpu: "2", memory: 2Gi }
+        - name: worker
+          image: image-registry.openshift-image-registry.svc:5000/PROJECT/dialect-worker:demo
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef: { name: dialect-config }
+            - secretRef: { name: dialect-secrets }
+          volumeMounts:
+            - name: media
+              mountPath: /data/media
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: media
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector: { app: dialect }
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: web
+  annotations:
+    haproxy.router.openshift.io/timeout: 5m
+spec:
+  host: HOST
+  to:
+    kind: Service
+    name: web
+  port:
+    targetPort: 3000
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
